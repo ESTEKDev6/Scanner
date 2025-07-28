@@ -1,5 +1,19 @@
 <template>
   <v-container class="pa-4">
+    <!-- Scan Mode Selection -->
+    <v-row justify="center" class="mb-2">
+      <v-col cols="12" md="6">
+        <v-select
+          v-model="selectedScanType"
+          :items="scanOptions"
+          label="Select Scan Type"
+          variant="outlined"
+          dense
+        ></v-select>
+      </v-col>
+    </v-row>
+
+    <!-- Scanner Controls -->
     <v-row justify="center" class="mb-4">
       <v-col cols="12" md="8" class="text-center">
         <v-btn
@@ -28,12 +42,14 @@
       </v-col>
     </v-row>
 
+    <!-- Scanner View -->
     <v-row justify="center">
       <v-col cols="12" md="8">
         <div id="video-container" class="scanner-box elevation-3"></div>
       </v-col>
     </v-row>
 
+    <!-- Scan Result -->
     <v-row justify="center" class="mt-4">
       <v-col cols="12" md="8">
         <v-alert
@@ -68,17 +84,43 @@
 import { ref, onBeforeUnmount, nextTick } from "vue";
 import { Html5Qrcode, Html5QrcodeSupportedFormats } from "html5-qrcode";
 
+// Refs
 const scannedData = ref<string | null>(null);
 const isScanning = ref(false);
 let scanner: Html5Qrcode | null = null;
 
 const SCANNER_ID = "video-container";
 
+// User-selected scan type
+const selectedScanType = ref("QR Code");
+const scanOptions = ["QR Code", "Barcode", "Both"];
+
+// Get supported formats based on user selection
+const getFormatsToSupport = () => {
+  switch (selectedScanType.value) {
+    case "QR Code":
+      return [Html5QrcodeSupportedFormats.QR_CODE];
+    case "Barcode":
+      return [
+        Html5QrcodeSupportedFormats.CODE_128,
+        Html5QrcodeSupportedFormats.EAN_13,
+      ];
+    case "Both":
+      return [
+        Html5QrcodeSupportedFormats.QR_CODE,
+        Html5QrcodeSupportedFormats.CODE_128,
+        Html5QrcodeSupportedFormats.EAN_13,
+      ];
+  }
+};
+
+// Utility to detect if scanned result is a link
 const isLink = (text: string | null): boolean => {
   if (!text) return false;
   return /^https?:\/\/[\w\-._~:/?#[\]@!$&'()*+,;=%]+$/i.test(text);
 };
 
+// Start scanner
 const startScanner = async () => {
   if (scanner || isScanning.value) return;
 
@@ -99,16 +141,12 @@ const startScanner = async () => {
       {
         fps: 10,
         qrbox: { width: 250, height: 250 },
-        formatsToSupport: [
-          Html5QrcodeSupportedFormats.QR_CODE,
-          Html5QrcodeSupportedFormats.CODE_128,
-          Html5QrcodeSupportedFormats.EAN_13,
-        ],
+        formatsToSupport: getFormatsToSupport(),
       },
       (decodedText: string) => {
         scannedData.value = decodedText;
         console.log("Scanned:", decodedText);
-        stopScanner();
+        stopScanner(); // remove this if you want continuous scanning
       },
       (errorMessage) => {
         console.debug("Scan error:", errorMessage);
@@ -120,6 +158,7 @@ const startScanner = async () => {
   }
 };
 
+// Stop scanner
 const stopScanner = async () => {
   if (scanner) {
     try {
@@ -134,6 +173,7 @@ const stopScanner = async () => {
   }
 };
 
+// Clean up on unmount
 onBeforeUnmount(() => {
   stopScanner();
 });
